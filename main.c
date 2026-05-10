@@ -32,6 +32,7 @@ void viewStock(Product *inv, int count);
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount);
 void generateReceipt(Product *cart, int cartCount);
 int findProductByID(Product *inv, int count, int id);
+void clearBuffer();
 
 int main() {
     loadInventory(inventory, &inventoryCount);
@@ -42,7 +43,8 @@ int main() {
         printf("Enter your choice: ");
         if (scanf("%d", &choice) != 1) {
             printf("Invalid input. Please enter a number.\n");
-            while (getchar() != '\n'); // Clear buffer
+            clearBuffer();
+            choice = 0;
             continue;
         }
 
@@ -65,6 +67,11 @@ int main() {
     return 0;
 }
 
+void clearBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
 void loadInventory(Product *inv, int *count) {
     FILE *file = fopen(INVENTORY_FILE, "r");
     if (file == NULL) {
@@ -74,9 +81,9 @@ void loadInventory(Product *inv, int *count) {
     }
 
     *count = 0;
-    while (fscanf(file, "%d %s %f %d", &inv[*count].ID, inv[*count].name, &inv[*count].price, &inv[*count].quantity) == 4) {
+    while (*count < MAX_PRODUCTS && fscanf(file, "%d %49s %f %d", 
+           &inv[*count].ID, inv[*count].name, &inv[*count].price, &inv[*count].quantity) == 4) {
         (*count)++;
-        if (*count >= MAX_PRODUCTS) break;
     }
 
     fclose(file);
@@ -114,8 +121,9 @@ void managerMode() {
         printf("3. Return to Main Menu\n");
         printf("Choice: ");
         if (scanf("%d", &choice) != 1) {
-            printf("Invalid input. Please enter a number.\n");
-            while (getchar() != '\n');
+            printf("Invalid input.\n");
+            clearBuffer();
+            choice = 0;
             continue;
         }
 
@@ -136,23 +144,31 @@ void addProduct(Product *inv, int *count) {
 
     Product p;
     printf("Enter Product ID: ");
-    scanf("%d", &p.ID);
+    if (scanf("%d", &p.ID) != 1) {
+        printf("Invalid ID!\n");
+        clearBuffer();
+        return;
+    }
     
-    // Check if ID already exists
     if (findProductByID(inv, *count, p.ID) != -1) {
         printf("Product ID already exists!\n");
         return;
     }
 
-    printf("Enter Name: ");
-    scanf("%s", p.name);
+    printf("Enter Name (no spaces): ");
+    scanf("%49s", p.name);
+    
     printf("Enter Price: ");
-    scanf("%f", &p.price);
-    printf("Enter Quantity: ");
-    scanf("%d", &p.quantity);
+    if (scanf("%f", &p.price) != 1 || p.price < 0) {
+        printf("Invalid price!\n");
+        clearBuffer();
+        return;
+    }
 
-    if (p.quantity < 0) {
-        printf("Quantity cannot be negative!\n");
+    printf("Enter Quantity: ");
+    if (scanf("%d", &p.quantity) != 1 || p.quantity < 0) {
+        printf("Invalid quantity!\n");
+        clearBuffer();
         return;
     }
 
@@ -162,6 +178,10 @@ void addProduct(Product *inv, int *count) {
 }
 
 void viewStock(Product *inv, int count) {
+    if (count == 0) {
+        printf("\nInventory is empty.\n");
+        return;
+    }
     printf("\n%-10s %-20s %-10s %-10s\n", "ID", "Name", "Price", "Quantity");
     printf("------------------------------------------------------------\n");
     for (int i = 0; i < count; i++) {
@@ -180,8 +200,9 @@ void customerMode() {
         printf("4. Return to Main Menu\n");
         printf("Choice: ");
         if (scanf("%d", &choice) != 1) {
-            printf("Invalid input. Please enter a number.\n");
-            while (getchar() != '\n');
+            printf("Invalid input.\n");
+            clearBuffer();
+            choice = 0;
             continue;
         }
 
@@ -191,8 +212,8 @@ void customerMode() {
             case 3: 
                 if (cartCount > 0) {
                     generateReceipt(cart, cartCount);
-                    saveInventory(inventory, inventoryCount); // Save changes after purchase
-                    return; // Exit customer mode after checkout
+                    saveInventory(inventory, inventoryCount); 
+                    return; 
                 } else {
                     printf("Cart is empty!\n");
                 }
@@ -204,43 +225,55 @@ void customerMode() {
 }
 
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
-    if (*cartCount >= MAX_CART_ITEMS) {
-        printf("Cart is full!\n");
+    int id, qty;
+    printf("Enter Product ID to add: ");
+    if (scanf("%d", &id) != 1) {
+        printf("Invalid ID!\n");
+        clearBuffer();
         return;
     }
 
-    int id, qty;
-    printf("Enter Product ID to add: ");
-    scanf("%d", &id);
-
-    int index = findProductByID(inv, invCount, id);
-    if (index == -1) {
+    int invIdx = findProductByID(inv, invCount, id);
+    if (invIdx == -1) {
         printf("Product not found!\n");
         return;
     }
 
     printf("Enter Quantity: ");
-    scanf("%d", &qty);
-
-    if (qty <= 0) {
+    if (scanf("%d", &qty) != 1 || qty <= 0) {
         printf("Invalid quantity!\n");
+        clearBuffer();
         return;
     }
 
-    if (qty > inv[index].quantity) {
-        printf("Not enough stock available! (Available: %d)\n", inv[index].quantity);
+    if (qty > inv[invIdx].quantity) {
+        printf("Not enough stock! (Available: %d)\n", inv[invIdx].quantity);
         return;
     }
 
-    // Add to cart
-    cart[*cartCount] = inv[index];
-    cart[*cartCount].quantity = qty;
-    
-    // Deduct from inventory in memory
-    inv[index].quantity -= qty;
-    
-    (*cartCount)++;
-    printf("Added %d %s to cart.\n", qty, inv[index].name);
+    // Check if item already in cart
+    int cartIdx = -1;
+    for (int i = 0; i < *cartCount; i++) {
+        if (cart[i].ID == id) {
+            cartIdx = i;
+            break;
+        }
+    }
+
+    if (cartIdx != -1) {
+        cart[cartIdx].quantity += qty;
+    } else {
+        if (*cartCount >= MAX_CART_ITEMS) {
+            printf("Cart is full!\n");
+            return;
+        }
+        cart[*cartCount] = inv[invIdx];
+        cart[*cartCount].quantity = qty;
+        (*cartCount)++;
+    }
+
+    inv[invIdx].quantity -= qty;
+    printf("Added %d %s to cart.\n", qty, inv[invIdx].name);
 }
 
 void generateReceipt(Product *cart, int cartCount) {
