@@ -14,15 +14,24 @@ typedef struct {
     int quantity;
 } Product;
 
-// Global Inventory and Cart
+typedef struct {
+    char ID[50];
+    int itemsSold;
+    float totalRevenue;
+} Account;
+
+// Global Inventory, Cart, and Accounts
 Product inventory[MAX_PRODUCTS];
 int inventoryCount = 0;
 
 Product cart[MAX_CART_ITEMS];
 int cartCount = 0;
 
+Account accounts[100];
+int accountCount = 0;
+int currentAccountIndex = -1; // -1 if guest/customer
+
 // Function Prototypes
-void displayMenu();
 void managerMode();
 void customerMode();
 void loadInventory(Product *inv, int *count);
@@ -34,37 +43,104 @@ void generateReceipt(Product *cart, int cartCount);
 int findProductByID(Product *inv, int count, int id);
 void clearBuffer();
 
+// New Prototypes
+void loadAccounts();
+void saveAccounts();
+int findAccountByID(const char *id);
+void registerAccount(const char *id);
+void viewMyStats();
+
 int main() {
     loadInventory(inventory, &inventoryCount);
+    loadAccounts();
     
-    int choice;
-    do {
-        displayMenu();
-        printf("Enter your choice: ");
-        if (scanf_s("%d", &choice) != 1) {
-            printf("Invalid input. Please enter a number.\n");
+    char userID[50];
+    while (1) {
+        printf("\n--- WELCOME TO SUPERMARKET ---\n");
+        printf("Enter your ID (Manager starts with #) or 'exit' to quit: ");
+        if (scanf_s("%s", userID, (unsigned)_countof(userID)) != 1) {
             clearBuffer();
-            choice = 0;
             continue;
         }
 
-        switch (choice) {
-            case 1:
-                managerMode();
-                break;
-            case 2:
-                customerMode();
-                break;
-            case 3:
-                saveInventory(inventory, inventoryCount);
-                printf("Exiting... Inventory saved.\n");
-                break;
-            default:
-                printf("Invalid choice. Try again.\n");
+        if (_stricmp(userID, "exit") == 0) {
+            saveInventory(inventory, inventoryCount);
+            saveAccounts();
+            printf("Exiting... Data saved.\n");
+            break;
         }
-    } while (choice != 3);
+
+        if (userID[0] == '#') {
+            int idx = findAccountByID(userID);
+            if (idx == -1) {
+                char choice;
+                printf("Manager ID not found. Register as new manager? (y/n): ");
+                clearBuffer();
+                scanf_s("%c", &choice, 1);
+                if (choice == 'y' || choice == 'Y') {
+                    registerAccount(userID);
+                    currentAccountIndex = accountCount - 1;
+                    managerMode();
+                }
+            } else {
+                currentAccountIndex = idx;
+                managerMode();
+            }
+        } else {
+            currentAccountIndex = -1; // Guest/Customer
+            customerMode();
+        }
+    }
 
     return 0;
+}
+
+void loadAccounts() {
+    FILE *file = NULL;
+    fopen_s(&file, "accounts.txt", "r");
+    if (file == NULL) {
+        accountCount = 0;
+        return;
+    }
+
+    accountCount = 0;
+    while (accountCount < 100 && fscanf_s(file, "%s %d %f", 
+           accounts[accountCount].ID, (unsigned)_countof(accounts[accountCount].ID),
+           &accounts[accountCount].itemsSold, &accounts[accountCount].totalRevenue) == 3) {
+        accountCount++;
+    }
+    fclose(file);
+}
+
+void saveAccounts() {
+    FILE *file = NULL;
+    fopen_s(&file, "accounts.txt", "w");
+    if (file == NULL) return;
+
+    for (int i = 0; i < accountCount; i++) {
+        fprintf_s(file, "%s %d %.2f\n", accounts[i].ID, accounts[i].itemsSold, accounts[i].totalRevenue);
+    }
+    fclose(file);
+}
+
+int findAccountByID(const char *id) {
+    for (int i = 0; i < accountCount; i++) {
+        if (strcmp(accounts[i].ID, id) == 0) return i;
+    }
+    return -1;
+}
+
+void registerAccount(const char *id) {
+    if (accountCount < 100) {
+        strcpy_s(accounts[accountCount].ID, _countof(accounts[accountCount].ID), id);
+        accounts[accountCount].itemsSold = 0;
+        accounts[accountCount].totalRevenue = 0.0f;
+        accountCount++;
+        saveAccounts();
+        printf("Manager account registered successfully.\n");
+    } else {
+        printf("Account database full!\n");
+    }
 }
 
 void clearBuffer() {
@@ -83,7 +159,6 @@ void loadInventory(Product *inv, int *count) {
     }
 
     *count = 0;
-    // Note: fscanf_s requires buffer size for %s
     while (*count < MAX_PRODUCTS && fscanf_s(file, "%d %s %f %d", 
            &inv[*count].ID, inv[*count].name, (unsigned)_countof(inv[*count].name), 
            &inv[*count].price, &inv[*count].quantity) == 4) {
@@ -110,21 +185,22 @@ void saveInventory(Product *inv, int count) {
     fclose(file);
 }
 
-void displayMenu() {
-    printf("\n=== SUPERMARKET MANAGEMENT SYSTEM ===\n");
-    printf("1. Manager Mode\n");
-    printf("2. Customer Mode\n");
-    printf("3. Exit\n");
-    printf("=====================================\n");
+void viewMyStats() {
+    if (currentAccountIndex != -1) {
+        printf("\n--- SALES STATS FOR %s ---\n", accounts[currentAccountIndex].ID);
+        printf("Items Sold: %d\n", accounts[currentAccountIndex].itemsSold);
+        printf("Total Revenue: %.2f\n", accounts[currentAccountIndex].totalRevenue);
+    }
 }
 
 void managerMode() {
     int choice;
     do {
-        printf("\n--- MANAGER MODE ---\n");
+        printf("\n--- MANAGER MODE (%s) ---\n", accounts[currentAccountIndex].ID);
         printf("1. Add Product\n");
         printf("2. View Stock\n");
-        printf("3. Return to Main Menu\n");
+        printf("3. View My Sales Stats\n");
+        printf("4. Return to ID Selection\n");
         printf("Choice: ");
         if (scanf_s("%d", &choice) != 1) {
             printf("Invalid input.\n");
@@ -136,10 +212,11 @@ void managerMode() {
         switch (choice) {
             case 1: addProduct(inventory, &inventoryCount); break;
             case 2: viewStock(inventory, inventoryCount); break;
-            case 3: break;
+            case 3: viewMyStats(); break;
+            case 4: break;
             default: printf("Invalid choice.\n");
         }
-    } while (choice != 3);
+    } while (choice != 4);
 }
 
 void addProduct(Product *inv, int *count) {
@@ -162,7 +239,6 @@ void addProduct(Product *inv, int *count) {
     }
 
     printf("Enter Name (no spaces): ");
-    // scanf_s requires buffer size for %s
     scanf_s("%49s", p.name, (unsigned)_countof(p.name));
     
     printf("Enter Price: ");
@@ -204,7 +280,7 @@ void customerMode() {
         printf("1. View Available Products\n");
         printf("2. Add to Cart\n");
         printf("3. Checkout & Generate Receipt\n");
-        printf("4. Return to Main Menu\n");
+        printf("4. Return to ID Selection\n");
         printf("Choice: ");
         if (scanf_s("%d", &choice) != 1) {
             printf("Invalid input.\n");
@@ -293,6 +369,7 @@ void generateReceipt(Product *cart, int cartCount) {
     }
 
     float total = 0;
+    int totalItems = 0;
     printf("\n--- FORMAL RECEIPT ---\n");
     printf("%-20s %-10s %-10s %-10s\n", "Item", "Price", "Qty", "Subtotal");
     printf("----------------------------------------------------\n");
@@ -303,6 +380,7 @@ void generateReceipt(Product *cart, int cartCount) {
     for (int i = 0; i < cartCount; i++) {
         float subtotal = cart[i].price * cart[i].quantity;
         total += subtotal;
+        totalItems += cart[i].quantity;
         printf("%-20s %-10.2f %-10d %-10.2f\n", cart[i].name, cart[i].price, cart[i].quantity, subtotal);
         fprintf_s(file, "%-20s %-10.2f %-10d %-10.2f\n", cart[i].name, cart[i].price, cart[i].quantity, subtotal);
     }
@@ -312,6 +390,13 @@ void generateReceipt(Product *cart, int cartCount) {
     printf("----------------------------------------------------\n");
     fprintf_s(file, "----------------------------------------------------\n");
     fprintf(file, "TOTAL AMOUNT: %.2f\n", total);
+
+    // Credit sales to manager if one is logged in
+    if (currentAccountIndex != -1) {
+        accounts[currentAccountIndex].itemsSold += totalItems;
+        accounts[currentAccountIndex].totalRevenue += total;
+        saveAccounts();
+    }
 
     fclose(file);
     printf("Receipt saved to %s\n", RECEIPT_FILE);
