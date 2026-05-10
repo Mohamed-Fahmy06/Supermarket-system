@@ -41,7 +41,7 @@ int main() {
     do {
         displayMenu();
         printf("Enter your choice: ");
-        if (scanf("%d", &choice) != 1) {
+        if (scanf_s("%d", &choice) != 1) {
             printf("Invalid input. Please enter a number.\n");
             clearBuffer();
             choice = 0;
@@ -73,16 +73,20 @@ void clearBuffer() {
 }
 
 void loadInventory(Product *inv, int *count) {
-    FILE *file = fopen(INVENTORY_FILE, "r");
-    if (file == NULL) {
-        printf("Inventory file not found. Starting with empty inventory.\n");
+    FILE *file = NULL;
+    errno_t err = fopen_s(&file, INVENTORY_FILE, "r");
+    
+    if (err != 0 || file == NULL) {
+        printf("Inventory file not found or could not be opened. Starting with empty inventory.\n");
         *count = 0;
         return;
     }
 
     *count = 0;
-    while (*count < MAX_PRODUCTS && fscanf(file, "%d %49s %f %d", 
-           &inv[*count].ID, inv[*count].name, &inv[*count].price, &inv[*count].quantity) == 4) {
+    // Note: fscanf_s requires buffer size for %s
+    while (*count < MAX_PRODUCTS && fscanf_s(file, "%d %s %f %d", 
+           &inv[*count].ID, inv[*count].name, (unsigned)_countof(inv[*count].name), 
+           &inv[*count].price, &inv[*count].quantity) == 4) {
         (*count)++;
     }
 
@@ -91,14 +95,16 @@ void loadInventory(Product *inv, int *count) {
 }
 
 void saveInventory(Product *inv, int count) {
-    FILE *file = fopen(INVENTORY_FILE, "w");
-    if (file == NULL) {
+    FILE *file = NULL;
+    errno_t err = fopen_s(&file, INVENTORY_FILE, "w");
+    
+    if (err != 0 || file == NULL) {
         printf("Error: Could not open inventory file for writing.\n");
         return;
     }
 
     for (int i = 0; i < count; i++) {
-        fprintf(file, "%d %s %.2f %d\n", inv[i].ID, inv[i].name, inv[i].price, inv[i].quantity);
+        fprintf_s(file, "%d %s %.2f %d\n", inv[i].ID, inv[i].name, inv[i].price, inv[i].quantity);
     }
 
     fclose(file);
@@ -120,7 +126,7 @@ void managerMode() {
         printf("2. View Stock\n");
         printf("3. Return to Main Menu\n");
         printf("Choice: ");
-        if (scanf("%d", &choice) != 1) {
+        if (scanf_s("%d", &choice) != 1) {
             printf("Invalid input.\n");
             clearBuffer();
             choice = 0;
@@ -144,7 +150,7 @@ void addProduct(Product *inv, int *count) {
 
     Product p;
     printf("Enter Product ID: ");
-    if (scanf("%d", &p.ID) != 1) {
+    if (scanf_s("%d", &p.ID) != 1) {
         printf("Invalid ID!\n");
         clearBuffer();
         return;
@@ -156,17 +162,18 @@ void addProduct(Product *inv, int *count) {
     }
 
     printf("Enter Name (no spaces): ");
-    scanf("%49s", p.name);
+    // scanf_s requires buffer size for %s
+    scanf_s("%49s", p.name, (unsigned)_countof(p.name));
     
     printf("Enter Price: ");
-    if (scanf("%f", &p.price) != 1 || p.price < 0) {
+    if (scanf_s("%f", &p.price) != 1 || p.price < 0) {
         printf("Invalid price!\n");
         clearBuffer();
         return;
     }
 
     printf("Enter Quantity: ");
-    if (scanf("%d", &p.quantity) != 1 || p.quantity < 0) {
+    if (scanf_s("%d", &p.quantity) != 1 || p.quantity < 0) {
         printf("Invalid quantity!\n");
         clearBuffer();
         return;
@@ -199,7 +206,7 @@ void customerMode() {
         printf("3. Checkout & Generate Receipt\n");
         printf("4. Return to Main Menu\n");
         printf("Choice: ");
-        if (scanf("%d", &choice) != 1) {
+        if (scanf_s("%d", &choice) != 1) {
             printf("Invalid input.\n");
             clearBuffer();
             choice = 0;
@@ -227,7 +234,7 @@ void customerMode() {
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
     int id, qty;
     printf("Enter Product ID to add: ");
-    if (scanf("%d", &id) != 1) {
+    if (scanf_s("%d", &id) != 1) {
         printf("Invalid ID!\n");
         clearBuffer();
         return;
@@ -240,7 +247,7 @@ void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
     }
 
     printf("Enter Quantity: ");
-    if (scanf("%d", &qty) != 1 || qty <= 0) {
+    if (scanf_s("%d", &qty) != 1 || qty <= 0) {
         printf("Invalid quantity!\n");
         clearBuffer();
         return;
@@ -277,8 +284,10 @@ void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
 }
 
 void generateReceipt(Product *cart, int cartCount) {
-    FILE *file = fopen(RECEIPT_FILE, "w");
-    if (file == NULL) {
+    FILE *file = NULL;
+    errno_t err = fopen_s(&file, RECEIPT_FILE, "w");
+    
+    if (err != 0 || file == NULL) {
         printf("Error: Could not generate receipt file.\n");
         return;
     }
@@ -287,21 +296,21 @@ void generateReceipt(Product *cart, int cartCount) {
     printf("\n--- FORMAL RECEIPT ---\n");
     printf("%-20s %-10s %-10s %-10s\n", "Item", "Price", "Qty", "Subtotal");
     printf("----------------------------------------------------\n");
-    fprintf(file, "--- SUPERMARKET RECEIPT ---\n");
-    fprintf(file, "%-20s %-10s %-10s %-10s\n", "Item", "Price", "Qty", "Subtotal");
-    fprintf(file, "----------------------------------------------------\n");
+    fprintf_s(file, "--- SUPERMARKET RECEIPT ---\n");
+    fprintf_s(file, "%-20s %-10s %-10s %-10s\n", "Item", "Price", "Qty", "Subtotal");
+    fprintf_s(file, "----------------------------------------------------\n");
 
     for (int i = 0; i < cartCount; i++) {
         float subtotal = cart[i].price * cart[i].quantity;
         total += subtotal;
         printf("%-20s %-10.2f %-10d %-10.2f\n", cart[i].name, cart[i].price, cart[i].quantity, subtotal);
-        fprintf(file, "%-20s %-10.2f %-10d %-10.2f\n", cart[i].name, cart[i].price, cart[i].quantity, subtotal);
+        fprintf_s(file, "%-20s %-10.2f %-10d %-10.2f\n", cart[i].name, cart[i].price, cart[i].quantity, subtotal);
     }
 
     printf("----------------------------------------------------\n");
     printf("TOTAL AMOUNT: %.2f\n", total);
     printf("----------------------------------------------------\n");
-    fprintf(file, "----------------------------------------------------\n");
+    fprintf_s(file, "----------------------------------------------------\n");
     fprintf(file, "TOTAL AMOUNT: %.2f\n", total);
 
     fclose(file);
