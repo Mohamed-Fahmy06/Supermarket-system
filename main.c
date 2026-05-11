@@ -384,6 +384,7 @@ void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
 
 void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount) {
     float total = 0;
+    int totalItems = 0;
     for (int i = 0; i < *cartCount; i++) {
         int payQty = cart[i].quantity;
         for (int j = 0; j < ruleCount; j++) {
@@ -395,9 +396,17 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
             }
         }
         float sub = payQty * cart[i].price; total += sub;
+        totalItems += cart[i].quantity;
         recordSale(cart[i].ID, cart[i].quantity, sub, cart[i].section);
     }
     printf("Total to pay: %.2f\n", total); generateReceipt(cart, *cartCount);
+    
+    if (currentAccountIndex != -1) {
+        accounts[currentAccountIndex].itemsSold += totalItems;
+        accounts[currentAccountIndex].totalRevenue += total;
+        saveAccounts();
+    }
+
     *cartCount = 0; saveInventory(inv, invCount, INVENTORY_FILE);
 }
 
@@ -428,7 +437,13 @@ void viewAnalytics() {
     }
     fclose(f);
     printf("\n--- SECTION ANALYTICS ---\n");
-    for (int i=0; i<5; i++) printf("%s: %d items sold\n", sections[i], counts[i]);
+    int maxIdx = 0;
+    for (int i=0; i<5; i++) {
+        printf("%s: %d items sold\n", sections[i], counts[i]);
+        if (counts[i] > counts[maxIdx]) maxIdx = i;
+    }
+    if (counts[maxIdx] > 0) printf("\nMOST WANTED SECTION: %s (%d items sold)\n", sections[maxIdx], counts[maxIdx]);
+    else printf("\nNo sales data available to determine most wanted section.\n");
 }
 
 void manageSales() {
