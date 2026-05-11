@@ -58,6 +58,7 @@ void viewStock(Product *inv, int count);
 void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount);
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount);
 void generateReceipt(Product *cart, int cartCount);
+void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount);
 int findProductByID(Product *inv, int count, int id);
 void clearBuffer();
 void changePrice();
@@ -577,7 +578,7 @@ void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount)
         printf("\n--- SALES MODE ---\n");
         printf("1. View Available Products\n");
         printf("2. Add to Cart\n");
-        printf("3. Checkout & Generate Receipt\n");
+        printf("3. Review Cart & Checkout\n");
         printf("4. Return to Menu\n");
         printf("Choice: ");
         if (scanf_s("%d", &choice) != 1)
@@ -598,9 +599,8 @@ void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount)
         case 3:
             if (*cartCount > 0)
             {
-                generateReceipt(cart, *cartCount);
-                saveInventory(inv, invCount);
-                return;
+                reviewAndCheckout(inv, invCount, cart, cartCount);
+                if (*cartCount == 0) return; // Cart checked out or abandoned
             }
             else
             {
@@ -613,6 +613,90 @@ void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount)
             printf("Invalid choice.\n");
         }
     } while (choice != 4);
+}
+
+void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount) {
+    int choice;
+    do {
+        float total = 0;
+        printf("\n--- CART REVIEW ---\n");
+        printf("%-5s %-20s %-10s %-10s %-10s\n", "ID", "Item", "Price", "Qty", "Subtotal");
+        printf("------------------------------------------------------------\n");
+        for (int i = 0; i < *cartCount; i++) {
+            float sub = cart[i].price * cart[i].quantity;
+            total += sub;
+            printf("%-5d %-20s %-10.2f %-10d %-10.2f\n", cart[i].ID, cart[i].name, cart[i].price, cart[i].quantity, sub);
+        }
+        printf("------------------------------------------------------------\n");
+        printf("TOTAL PRICE: %.2f\n", total);
+        
+        printf("\n1. Pay Now\n");
+        printf("2. Change Quantity of an Item\n");
+        printf("3. Back to Adding Items\n");
+        printf("Choice: ");
+        if (scanf_s("%d", &choice) != 1) {
+            clearBuffer();
+            choice = 0;
+            continue;
+        }
+
+        if (choice == 1) {
+            generateReceipt(cart, *cartCount);
+            saveInventory(inv, invCount);
+            *cartCount = 0; // Mark as done
+            return;
+        } else if (choice == 2) {
+            int id, newQty;
+            printf("Enter Item ID to change quantity: ");
+            scanf_s("%d", &id);
+            
+            int cIdx = -1;
+            for (int i = 0; i < *cartCount; i++) {
+                if (cart[i].ID == id) {
+                    cIdx = i;
+                    break;
+                }
+            }
+
+            if (cIdx == -1) {
+                printf("Item not in cart!\n");
+                continue;
+            }
+
+            printf("Current Quantity: %d. Enter New Quantity: ", cart[cIdx].quantity);
+            if (scanf_s("%d", &newQty) != 1 || newQty < 0) {
+                printf("Invalid quantity!\n");
+                clearBuffer();
+                continue;
+            }
+
+            int diff = newQty - cart[cIdx].quantity;
+            int iIdx = findProductByID(inv, invCount, id);
+
+            if (diff > 0) {
+                if (diff > inv[iIdx].quantity) {
+                    printf("Not enough stock available! (Available: %d)\n", inv[iIdx].quantity);
+                    continue;
+                }
+            }
+
+            // Adjust stock and cart
+            inv[iIdx].quantity -= diff;
+            cart[cIdx].quantity = newQty;
+
+            if (newQty == 0) {
+                // Remove item from cart
+                for (int i = cIdx; i < *cartCount - 1; i++) {
+                    cart[i] = cart[i + 1];
+                }
+                (*cartCount)--;
+                printf("Item removed from cart.\n");
+                if (*cartCount == 0) return;
+            } else {
+                printf("Quantity updated.\n");
+            }
+        }
+    } while (choice != 3);
 }
 
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount)
