@@ -386,31 +386,83 @@ void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
 }
 
 void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount) {
-    float total = 0;
-    int totalItems = 0;
-    for (int i = 0; i < *cartCount; i++) {
-        int payQty = cart[i].quantity;
-        for (int j = 0; j < ruleCount; j++) {
-            if (saleRules[j].productID == cart[i].ID) {
-                int sets = cart[i].quantity / saleRules[j].buyQty;
-                int remainder = cart[i].quantity % saleRules[j].buyQty;
-                payQty = (sets * saleRules[j].payQty) + remainder;
-                break;
+    int choice;
+    do {
+        float finalTotal = 0;
+        int totalItemsInCart = 0;
+        printf("\n--- CART REVIEW ---\n%-5s %-20s %-10s %-10s %-10s\n", "ID", "Item", "Price", "Qty", "Subtotal");
+        printf("------------------------------------------------------------\n");
+        for (int i = 0; i < *cartCount; i++) {
+            int payQty = cart[i].quantity;
+            for (int j = 0; j < ruleCount; j++) {
+                if (saleRules[j].productID == cart[i].ID) {
+                    int sets = cart[i].quantity / saleRules[j].buyQty;
+                    int remainder = cart[i].quantity % saleRules[j].buyQty;
+                    payQty = (sets * saleRules[j].payQty) + remainder;
+                    break;
+                }
+            }
+            float sub = payQty * cart[i].price;
+            finalTotal += sub;
+            totalItemsInCart += cart[i].quantity;
+            printf("%-5d %-20s %-10.2f %-10d %-10.2f\n", cart[i].ID, cart[i].name, cart[i].price, cart[i].quantity, sub);
+        }
+        printf("------------------------------------------------------------\n");
+        printf("TOTAL TO PAY: %.2f\n", finalTotal);
+
+        printf("\n1. Pay Now (No returns after this!)\n2. Change Quantity / Remove Item\n3. Back to Shopping\nChoice: ");
+        if (scanf_s("%d", &choice) != 1) { clearBuffer(); choice = 0; continue; }
+
+        if (choice == 1) {
+            for (int i = 0; i < *cartCount; i++) {
+                int payQty = cart[i].quantity;
+                for (int j = 0; j < ruleCount; j++) {
+                    if (saleRules[j].productID == cart[i].ID) {
+                        int sets = cart[i].quantity / saleRules[j].buyQty;
+                        int remainder = cart[i].quantity % saleRules[j].buyQty;
+                        payQty = (sets * saleRules[j].payQty) + remainder;
+                        break;
+                    }
+                }
+                recordSale(cart[i].ID, cart[i].quantity, payQty * cart[i].price, cart[i].section);
+            }
+            generateReceipt(cart, *cartCount);
+            if (currentAccountIndex != -1) {
+                accounts[currentAccountIndex].itemsSold += totalItemsInCart;
+                accounts[currentAccountIndex].totalRevenue += finalTotal;
+                saveAccounts();
+            }
+            *cartCount = 0;
+            saveInventory(inv, invCount, INVENTORY_FILE);
+            printf("Payment successful! Thank you for shopping.\n");
+            return;
+        } else if (choice == 2) {
+            int id, newQty;
+            printf("Enter Item ID to change/remove: ");
+            if (scanf_s("%d", &id) != 1) { clearBuffer(); continue; }
+            int cIdx = -1;
+            for (int i = 0; i < *cartCount; i++) if (cart[i].ID == id) { cIdx = i; break; }
+            if (cIdx == -1) { printf("Item not in cart!\n"); continue; }
+            
+            printf("Current Qty: %d. Enter New Qty (0 to remove): ", cart[cIdx].quantity);
+            if (scanf_s("%d", &newQty) != 1 || newQty < 0) { clearBuffer(); continue; }
+            
+            int diff = newQty - cart[cIdx].quantity;
+            int iIdx = findProductByID(inv, invCount, id);
+            if (diff > 0 && diff > inv[iIdx].quantity) { printf("Not enough stock available!\n"); continue; }
+            
+            inv[iIdx].quantity -= diff; // Restore or subtract stock
+            if (newQty == 0) {
+                for (int i = cIdx; i < *cartCount - 1; i++) cart[i] = cart[i+1];
+                (*cartCount)--;
+                printf("Item removed from cart.\n");
+                if (*cartCount == 0) return;
+            } else {
+                cart[cIdx].quantity = newQty;
+                printf("Quantity updated.\n");
             }
         }
-        float sub = payQty * cart[i].price; total += sub;
-        totalItems += cart[i].quantity;
-        recordSale(cart[i].ID, cart[i].quantity, sub, cart[i].section);
-    }
-    printf("Total to pay: %.2f\n", total); generateReceipt(cart, *cartCount);
-    
-    if (currentAccountIndex != -1) {
-        accounts[currentAccountIndex].itemsSold += totalItems;
-        accounts[currentAccountIndex].totalRevenue += total;
-        saveAccounts();
-    }
-
-    *cartCount = 0; saveInventory(inv, invCount, INVENTORY_FILE);
+    } while (choice != 3);
 }
 
 void generateReceipt(Product *cart, int cartCount) {
