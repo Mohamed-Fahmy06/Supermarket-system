@@ -1,3 +1,20 @@
-1105 Rice 50.00 93
-1408 Flour 35.50 48
-1509 Sugar 40.00 70
+101 Water 1.50 100 drinks 1 1 2027
+102 Juice 3.00 80 drinks 15 6 2026
+103 Milk 2.50 60 drinks 20 5 2026
+104 Tea 4.00 120 drinks 30 12 2027
+201 Cola 2.00 150 soda 10 10 2026
+202 Pepsi 2.00 150 soda 5 11 2026
+203 Sprite 1.80 130 soda 25 9 2026
+204 Fanta 1.80 140 soda 12 8 2026
+301 Beans 5.00 90 Legumes 1 1 2028
+302 Lentils 4.50 110 Legumes 15 3 2028
+303 Chickpeas 6.00 70 Legumes 10 5 2028
+304 Peas 3.50 85 Legumes 20 4 2028
+401 Lotion 12.00 40 Moisturizers 1 1 2027
+402 Cream 15.00 35 Moisturizers 15 6 2027
+403 Oil 10.00 50 Moisturizers 20 5 2027
+404 Gel 8.00 60 Moisturizers 30 12 2027
+501 Lipstick 20.00 25 Makeup 1 1 2026
+502 Mascara 18.00 30 Makeup 15 3 2026
+503 Foundation 25.00 20 Makeup 10 5 2026
+504 Eyeliner 15.00 40 Makeup 20 4 2026
