@@ -1,5 +1,5 @@
 101 Water 1.50 100 drinks 1 1 2027
-102 Juice 3.00 80 drinks 15 6 2026
+102 Juice 3.00 75 drinks 15 6 2026
 103 Milk 2.50 60 drinks 20 5 2026
 104 Tea 4.00 120 drinks 30 12 2027
 201 Cola 2.00 150 soda 10 10 2026
@@ -14,7 +14,7 @@
 402 Cream 15.00 35 Moisturizers 15 6 2027
 403 Oil 10.00 50 Moisturizers 20 5 2027
 404 Gel 8.00 60 Moisturizers 30 12 2027
-501 Lipstick 20.00 25 Makeup 1 1 2026
-502 Mascara 18.00 30 Makeup 15 3 2026
+501 Lipstick 20.00 19 Makeup 1 1 2026
+502 Mascara 18.00 28 Makeup 15 3 2026
 503 Foundation 25.00 20 Makeup 10 5 2026
-504 Eyeliner 15.00 40 Makeup 20 4 2026
+504 Eyeliner 15.00 37 Makeup 20 4 2026
