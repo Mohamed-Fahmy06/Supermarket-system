@@ -371,15 +371,18 @@ void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount) {
 }
 
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount) {
+    if (*cartCount >= MAX_CART_ITEMS) { printf("Cart is full!\n"); return; }
     char input[50]; int qty, idx = -1;
     printf("Enter Product ID or Name: "); scanf_s("%s", input, 50);
     if (input[0] >= '0' && input[0] <= '9') idx = findProductByID(inv, invCount, atoi(input));
     if (idx == -1) idx = findProductByName(inv, invCount, input);
-    if (idx == -1) { printf("Not found!\n"); return; }
-    printf("Quantity: "); scanf_s("%d", &qty);
-    if (qty > inv[idx].quantity) { printf("Shortage!\n"); return; }
+    if (idx == -1) { printf("Not found!\n"); clearBuffer(); return; }
+    printf("Quantity: "); if (scanf_s("%d", &qty) != 1) { clearBuffer(); return; }
+    if (qty <= 0) { printf("Invalid quantity!\n"); return; }
+    if (qty > inv[idx].quantity) { printf("Shortage! (Available: %d)\n", inv[idx].quantity); return; }
     cart[*cartCount] = inv[idx]; cart[*cartCount].quantity = qty; (*cartCount)++;
-    inv[idx].quantity -= qty; printf("Added.\n");
+    inv[idx].quantity -= qty; printf("Added %d %s to cart.\n", qty, inv[idx].name);
+    clearBuffer();
 }
 
 void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount) {
@@ -418,14 +421,27 @@ void generateReceipt(Product *cart, int cartCount) {
 }
 
 void returnProduct() {
-    int id, qty; printf("Enter Product ID to return: "); scanf_s("%d", &id);
+    int id, qty; printf("Enter Product ID to return: "); 
+    if (scanf_s("%d", &id) != 1) { clearBuffer(); return; }
     int idx = findProductByID(inventory, inventoryCount, id);
-    if (idx == -1) { printf("Invalid product!\n"); return; }
-    if (!isExpired(inventory[idx].expiryDate)) { printf("Return only allowed for items expired before purchase!\n"); return; }
-    printf("Quantity: "); scanf_s("%d", &qty);
-    expiredInventory[expiredCount] = inventory[idx]; expiredInventory[expiredCount].quantity = qty;
-    expiredCount++; saveInventory(expiredInventory, expiredCount, EXPIRED_FILE);
-    printf("Item returned to Expiration Section.\n");
+    if (idx == -1) { printf("Invalid product!\n"); clearBuffer(); return; }
+    if (!isExpired(inventory[idx].expiryDate)) { 
+        printf("Return denied: Item is not expired.\n"); 
+        clearBuffer(); return; 
+    }
+    printf("Quantity to return: "); if (scanf_s("%d", &qty) != 1) { clearBuffer(); return; }
+    if (qty <= 0) { printf("Invalid quantity!\n"); return; }
+    
+    if (expiredCount < MAX_PRODUCTS) {
+        expiredInventory[expiredCount] = inventory[idx];
+        expiredInventory[expiredCount].quantity = qty;
+        expiredCount++;
+        saveInventory(expiredInventory, expiredCount, EXPIRED_FILE);
+        printf("Return successful. Item moved to Expiration Section.\n");
+    } else {
+        printf("Expiration section is full!\n");
+    }
+    clearBuffer();
 }
 
 void viewAnalytics() {
