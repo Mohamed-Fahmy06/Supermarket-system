@@ -82,7 +82,7 @@ void addProduct(Product *inv, int *count);
 void viewStock(Product *inv, int count, const char *title);
 void sellProducts(Product *inv, int invCount, Product *cart, int *cartCount);
 void addToCart(Product *inv, int invCount, Product *cart, int *cartCount);
-void generateReceipt(Product *cart, int cartCount);
+void generateReceipt(Product *cart, int cartCount, float finalTotal);
 void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount);
 int findProductByID(Product *inv, int count, int id);
 int findProductByName(Product *inv, int count, const char *name);
@@ -102,6 +102,7 @@ void saveRules();
 void manageSales();
 void returnProduct();
 void viewAnalytics();
+void viewLastBill(); // Added this
 int isExpired(Date expiry);
 Date getCurrentDate();
 
@@ -144,7 +145,7 @@ int main()
             registerAccount(userID, ROLE_CUSTOMER);
             idx = accountCount - 1;
         } else if (idx == -1) {
-            printf("Staff ID not found. Contact manager (#001).\n");
+            printf("Staff ID not found. Contact the manager.\n");
             continue;
         }
 
@@ -220,13 +221,30 @@ void supervisorMenu() {
 void casherMenu() {
     int choice;
     do {
-        printf("\n--- CASHER MENU ---\n1. Sell Products\n2. View Stock\n3. Logout\nChoice: ");
+        printf("\n--- CASHER MENU ---\n1. Sell Products\n2. View Stock\n3. View Last Generated Bill\n4. Logout\nChoice: ");
         if (scanf_s("%d", &choice) != 1) { clearBuffer(); choice = 0; continue; }
         switch (choice) {
         case 1: sellProducts(inventory, inventoryCount, cart, &cartCount); break;
         case 2: viewStock(inventory, inventoryCount, "STOCK"); break;
+        case 3: viewLastBill(); break;
         }
-    } while (choice != 3);
+    } while (choice != 4);
+}
+
+void viewLastBill() {
+    FILE *f = NULL; fopen_s(&f, RECEIPT_FILE, "r");
+    if (f == NULL) {
+        printf("No pending or previous bills found.\n");
+        return;
+    }
+    char line[100];
+    printf("\n--- BILL ON SCREEN FOR CASHIER ---\n");
+    while (fgets(line, sizeof(line), f)) {
+        printf("%s", line);
+    }
+    fclose(f);
+    printf("----------------------------------\n");
+    system("pause");
 }
 
 void loadInventory(Product *inv, int *count, const char *filename) {
@@ -410,7 +428,7 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
         printf("------------------------------------------------------------\n");
         printf("TOTAL TO PAY: %.2f\n", finalTotal);
 
-        printf("\n1. Pay Now (No returns after this!)\n2. Change Quantity / Remove Item\n3. Back to Shopping\nChoice: ");
+        printf("\n1. Confirm Order & Proceed to Cashier\n2. Change Quantity / Remove Item\n3. Back to Shopping\nChoice: ");
         if (scanf_s("%d", &choice) != 1) { clearBuffer(); choice = 0; continue; }
 
         if (choice == 1) {
@@ -426,7 +444,7 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
                 }
                 recordSale(cart[i].ID, cart[i].quantity, payQty * cart[i].price, cart[i].section);
             }
-            generateReceipt(cart, *cartCount);
+            generateReceipt(cart, *cartCount, finalTotal);
             if (currentAccountIndex != -1) {
                 accounts[currentAccountIndex].itemsSold += totalItemsInCart;
                 accounts[currentAccountIndex].totalRevenue += finalTotal;
@@ -434,7 +452,9 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
             }
             *cartCount = 0;
             saveInventory(inv, invCount, INVENTORY_FILE);
-            printf("Payment successful! Thank you for shopping.\n");
+            printf("Order confirmed! Please proceed to the cashier for payment.\n");
+            printf("The cashier will be able to see your bill on their screen.\n");
+            system("pause");
             return;
         } else if (choice == 2) {
             int id, newQty;
@@ -465,10 +485,15 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
     } while (choice != 3);
 }
 
-void generateReceipt(Product *cart, int cartCount) {
+void generateReceipt(Product *cart, int cartCount, float finalTotal) {
     FILE *f = NULL; fopen_s(&f, RECEIPT_FILE, "w"); if (f == NULL) return;
     fprintf(f, "--- RECEIPT ---\n");
-    for (int i = 0; i < cartCount; i++) fprintf(f, "%s x%d\n", cart[i].name, cart[i].quantity);
+    for (int i = 0; i < cartCount; i++) {
+        fprintf(f, "%-20s x%d\n", cart[i].name, cart[i].quantity);
+    }
+    fprintf(f, "---------------------------\n");
+    fprintf(f, "TOTAL TO PAY: %.2f\n", finalTotal);
+    fprintf(f, "---------------------------\n");
     fclose(f);
 }
 
