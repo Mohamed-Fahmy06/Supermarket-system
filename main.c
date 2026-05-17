@@ -11,6 +11,7 @@
 #define RECEIPT_FILE "receipt.txt"
 #define RULES_FILE "rules.txt"
 #define EXPIRED_FILE "expired_inventory.txt"
+#define PENDING_ORDER_FILE "pending_order.txt"
 
 typedef struct {
     int day;
@@ -103,6 +104,8 @@ void manageSales();
 void returnProduct();
 void viewAnalytics();
 void viewLastBill(); // Added this
+void confirmPurchase(); // Added this
+void savePendingOrder(Product *cart, int count, float total); // Added this
 int isExpired(Date expiry);
 Date getCurrentDate();
 
@@ -221,14 +224,15 @@ void supervisorMenu() {
 void casherMenu() {
     int choice;
     do {
-        printf("\n--- CASHER MENU ---\n1. Sell Products\n2. View Stock\n3. View Last Generated Bill\n4. Logout\nChoice: ");
+        printf("\n--- CASHER MENU ---\n1. Sell Products\n2. View Stock\n3. View Last Generated Bill\n4. Confirm Purchase & Print Bill\n5. Logout\nChoice: ");
         if (scanf_s("%d", &choice) != 1) { clearBuffer(); choice = 0; continue; }
         switch (choice) {
         case 1: sellProducts(inventory, inventoryCount, cart, &cartCount); break;
         case 2: viewStock(inventory, inventoryCount, "STOCK"); break;
         case 3: viewLastBill(); break;
+        case 4: confirmPurchase(); break;
         }
-    } while (choice != 4);
+    } while (choice != 5);
 }
 
 void viewLastBill() {
@@ -432,24 +436,8 @@ void reviewAndCheckout(Product *inv, int invCount, Product *cart, int *cartCount
         if (scanf_s("%d", &choice) != 1) { clearBuffer(); choice = 0; continue; }
 
         if (choice == 1) {
-            for (int i = 0; i < *cartCount; i++) {
-                int payQty = cart[i].quantity;
-                for (int j = 0; j < ruleCount; j++) {
-                    if (saleRules[j].productID == cart[i].ID) {
-                        int sets = cart[i].quantity / saleRules[j].buyQty;
-                        int remainder = cart[i].quantity % saleRules[j].buyQty;
-                        payQty = (sets * saleRules[j].payQty) + remainder;
-                        break;
-                    }
-                }
-                recordSale(cart[i].ID, cart[i].quantity, payQty * cart[i].price, cart[i].section);
-            }
+            savePendingOrder(cart, *cartCount, finalTotal);
             generateReceipt(cart, *cartCount, finalTotal);
-            if (currentAccountIndex != -1) {
-                accounts[currentAccountIndex].itemsSold += totalItemsInCart;
-                accounts[currentAccountIndex].totalRevenue += finalTotal;
-                saveAccounts();
-            }
             *cartCount = 0;
             saveInventory(inv, invCount, INVENTORY_FILE);
             printf("Order confirmed! Please proceed to the cashier for payment.\n");
@@ -558,8 +546,59 @@ void loadRules() {
     fclose(f);
 }
 
-void saveRules() {
-    FILE *f = NULL; fopen_s(&f, RULES_FILE, "w"); if (f == NULL) return;
-    for (int i=0; i<ruleCount; i++) fprintf(f, "%d %d %d\n", saleRules[i].productID, saleRules[i].buyQty, saleRules[i].payQty);
+void savePendingOrder(Product *cart, int count, float total) {
+    FILE *f = NULL; fopen_s(&f, PENDING_ORDER_FILE, "w"); if (f == NULL) return;
+    fprintf(f, "%d %.2f\n", count, total);
+    for (int i = 0; i < count; i++) {
+        fprintf(f, "%d %s %.2f %d %s\n", cart[i].ID, cart[i].name, cart[i].price, cart[i].quantity, cart[i].section);
+    }
     fclose(f);
+}
+
+void confirmPurchase() {
+    FILE *f = NULL; fopen_s(&f, PENDING_ORDER_FILE, "r");
+    if (f == NULL) { printf("No pending orders to confirm.\n"); return; }
+    
+    int count; float total;
+    if (fscanf_s(f, "%d %f", &count, &total) != 2) { fclose(f); return; }
+    
+    Product tempCart[MAX_CART_ITEMS];
+    for (int i = 0; i < count; i++) {
+        fscanf_s(f, "%d %s %f %d %s", &tempCart[i].ID, tempCart[i].name, (unsigned)50, &tempCart[i].price, &tempCart[i].quantity, tempCart[i].section, (unsigned)30);
+    }
+    fclose(f);
+    
+    // Process Sales
+    int totalItems = 0;
+    for (int i = 0; i < count; i++) {
+        int payQty = tempCart[i].quantity;
+        for (int j = 0; j < ruleCount; j++) {
+            if (saleRules[j].productID == tempCart[i].ID) {
+                int sets = tempCart[i].quantity / saleRules[j].buyQty;
+                int remainder = tempCart[i].quantity % saleRules[j].buyQty;
+                payQty = (sets * saleRules[j].payQty) + remainder;
+                break;
+            }
+        }
+        recordSale(tempCart[i].ID, tempCart[i].quantity, payQty * tempCart[i].price, tempCart[i].section);
+        totalItems += tempCart[i].quantity;
+    }
+    
+    // Update Cashier Account
+    if (currentAccountIndex != -1) {
+        accounts[currentAccountIndex].itemsSold += totalItems;
+        accounts[currentAccountIndex].totalRevenue += total;
+        saveAccounts();
+    }
+    
+    // Generate Final Receipt (Same as receipt.txt but maybe marked as paid)
+    generateReceipt(tempCart, count, total);
+    
+    // Remove pending order
+    _unlink(PENDING_ORDER_FILE);
+    
+    printf("\n--- PURCHASE CONFIRMED & PAID ---\n");
+    printf("Total Collected: %.2f\n", total);
+    printf("Final Receipt Printed to 'receipt.txt'.\n");
+    system("pause");
 }

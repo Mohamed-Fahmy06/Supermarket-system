@@ -1,4 +1,4 @@
-101 Water 1.50 100 drinks 1 1 2027
+101 Water 1.50 90 drinks 1 1 2027
 102 Juice 3.00 75 drinks 15 6 2026
 103 Milk 2.50 60 drinks 20 5 2026
 104 Tea 4.00 120 drinks 30 12 2027
