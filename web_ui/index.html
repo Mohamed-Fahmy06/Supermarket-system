@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة السوبر ماركت</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="logo">
+                <i class="fas fa-shopping-cart"></i>
+            </div>
+            <h1>مرحباً بك في السوبر ماركت</h1>
+            <p>يرجى إدخال المعرف الخاص بك لتسجيل الدخول</p>
+            <form id="login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="user-id" placeholder="أدخل المعرف (مثال: #001 للمدير)" required>
+                </div>
+                <button type="submit" class="btn-primary">تسجيل الدخول</button>
+            </form>
+        </div>
+        <div class="circles">
+            <div class="circle circle-1"></div>
+            <div class="circle circle-2"></div>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="screen">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-shopping-cart"></i>
+                <h2>سوبر ماركت</h2>
+            </div>
+            <div class="user-info">
+                <div class="avatar"><i class="fas fa-user-tie"></i></div>
+                <div class="details">
+                    <h3 id="user-role-title">المدير</h3>
+                    <p id="user-id-display">#001</p>
+                </div>
+            </div>
+            <ul class="nav-links" id="nav-links">
+                <!-- Links will be populated by JS based on role -->
+            </ul>
+            <button id="logout-btn" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+            </button>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <h2 id="page-title">لوحة التحكم</h2>
+                <div class="header-actions">
+                    <div class="date-display" id="current-date"></div>
+                </div>
+            </header>
+
+            <div class="content-area" id="content-area">
+                <!-- Dynamic Content goes here -->
+                <div class="welcome-card glass-card">
+                    <h3>مرحباً بك في النظام</h3>
+                    <p>اختر إجراء من القائمة الجانبية للبدء.</p>
+                </div>
+                
+                <div class="stats-grid" id="manager-stats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="icon blue"><i class="fas fa-box"></i></div>
+                        <div class="stat-info">
+                            <h4>إجمالي المنتجات</h4>
+                            <p>124</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon green"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-info">
+                            <h4>مبيعات اليوم</h4>
+                            <p>3,450 ج.م</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon orange"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h4>العملاء</h4>
+                            <p>89</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon red"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="stat-info">
+                            <h4>منتجات منتهية</h4>
+                            <p>5</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

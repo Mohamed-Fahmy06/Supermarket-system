@@ -1,5 +1,6 @@
 --- RECEIPT ---
-Cola                 x4
+Water                x5
+Juice                x5
 ---------------------------
-TOTAL TO PAY: 8.00
+TOTAL TO PAY: 22.50
 ---------------------------
