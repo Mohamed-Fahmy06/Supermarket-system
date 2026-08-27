@@ -17,41 +17,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     currentDate.textContent = new Date().toLocaleDateString('ar-EG', options);
 
-    // Mock Roles Menu Items
+    // Role Mapping
+    const roleMapping = {
+        0: { role: 'manager', title: 'المدير' },
+        1: { role: 'supervisor', title: 'مشرف' },
+        2: { role: 'casher', title: 'كاشير' },
+        3: { role: 'customer', title: 'عميل' }
+    };
+
+    // Menus Configuration
     const menus = {
         manager: [
             { icon: 'fa-home', text: 'الرئيسية', action: 'home' },
             { icon: 'fa-box', text: 'المخزون', action: 'stock' },
             { icon: 'fa-chart-bar', text: 'التقارير', action: 'reports' },
-            { icon: 'fa-users', text: 'إدارة الحسابات', action: 'accounts' },
-            { icon: 'fa-tags', text: 'الأسعار والعروض', action: 'prices' },
-            { icon: 'fa-exclamation-triangle', text: 'المرتجعات المنتهية', action: 'expired' }
+            { icon: 'fa-users', text: 'إدارة الحسابات', action: 'accounts' }
         ],
         supervisor: [
             { icon: 'fa-home', text: 'الرئيسية', action: 'home' },
-            { icon: 'fa-plus-circle', text: 'إضافة منتج', action: 'add_product' },
             { icon: 'fa-box', text: 'عرض المخزون', action: 'stock' }
         ],
         casher: [
             { icon: 'fa-home', text: 'الرئيسية', action: 'home' },
-            { icon: 'fa-shopping-cart', text: 'نقطة البيع (POS)', action: 'sell' },
-            { icon: 'fa-file-invoice-dollar', text: 'آخر فاتورة', action: 'bill' },
             { icon: 'fa-box', text: 'استعلام مخزون', action: 'stock' }
         ],
         customer: [
             { icon: 'fa-home', text: 'الرئيسية', action: 'home' },
-            { icon: 'fa-store', text: 'تصفح المنتجات', action: 'browse' },
-            { icon: 'fa-shopping-basket', text: 'عربة التسوق', action: 'cart' },
-            { icon: 'fa-undo', text: 'إرجاع منتج منتهي', action: 'return' }
+            { icon: 'fa-store', text: 'تصفح المنتجات', action: 'stock' }
         ]
     };
 
-    // Determine Role based on ID
-    function getRole(id) {
-        if(id === '#001') return { role: 'manager', title: 'المدير' };
-        if(id.startsWith('#S')) return { role: 'supervisor', title: 'مشرف' };
-        if(id.startsWith('#C')) return { role: 'casher', title: 'كاشير' };
-        return { role: 'customer', title: 'عميل' };
+    // Data Verification
+    if (typeof inventoryData === 'undefined') {
+        console.error("Data file not found. Please run the C system first.");
+        alert("تنبيه: لم يتم العثور على ملف البيانات (data.js). يرجى تشغيل نظام الـ C وتصدير البيانات أولاً.");
     }
 
     // Login Handler
@@ -60,27 +59,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = userIdInput.value.trim();
         if(!id) return;
 
-        const user = getRole(id);
+        // Find user in accountsData (exported from C)
+        const userAccount = typeof accountsData !== 'undefined' ? accountsData.find(a => a.id === id) : null;
+        
+        if (!userAccount && id !== '#001') {
+            alert("المعرف غير صحيح أو غير مسجل في النظام.");
+            return;
+        }
+
+        const roleInfo = userAccount ? roleMapping[userAccount.role] : roleMapping[0];
         
         // Update UI
-        userRoleTitle.textContent = user.title;
+        userRoleTitle.textContent = roleInfo.title;
         userIdDisplay.textContent = id;
         
         // Render Menu
-        renderMenu(user.role);
+        renderMenu(roleInfo.role);
 
         // Show Dashboard
         loginScreen.classList.remove('active');
         dashboardScreen.classList.add('active');
 
-        // Show specific dashboard widgets based on role
-        if(user.role === 'manager') {
-            managerStats.style.display = 'grid';
-            pageTitle.textContent = 'نظرة عامة - المدير';
-        } else {
-            managerStats.style.display = 'none';
-            pageTitle.textContent = `لوحة تحكم - ${user.title}`;
-        }
+        // Initial Page
+        renderHome(roleInfo.role);
     });
 
     // Logout Handler
@@ -104,14 +105,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             a.addEventListener('click', (e) => {
                 e.preventDefault();
-                // Remove active from all
                 document.querySelectorAll('.nav-links a').forEach(el => el.classList.remove('active'));
                 a.classList.add('active');
                 
-                // Demo interactions
                 pageTitle.textContent = item.text;
-                if(item.action === 'stock') renderMockStock();
+                if(item.action === 'stock') renderStock();
                 else if(item.action === 'home') renderHome(role);
+                else if(item.action === 'accounts') renderAccounts();
+                else if(item.action === 'reports') renderReports();
                 else renderPlaceholder(item.text);
             });
 
@@ -125,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         contentArea.innerHTML = `
             <div class="glass-card">
                 <h3>${text}</h3>
-                <p>هذه واجهة تجريبية. سيتم ربط هذه الشاشة بوظائف نظام الـ C لاحقاً.</p>
+                <p>هذه الواجهة تعرض البيانات المستخرجة من نظام الـ C.</p>
             </div>
         `;
     }
@@ -134,17 +135,47 @@ document.addEventListener('DOMContentLoaded', () => {
         contentArea.innerHTML = `
             <div class="welcome-card glass-card">
                 <h3>مرحباً بك في النظام</h3>
-                <p>اختر إجراء من القائمة الجانبية للبدء.</p>
+                <p>نظام السوبر ماركت المتكامل (C + Web Interface)</p>
             </div>
         `;
-        if(role === 'manager') {
+        
+        if(role === 'manager' && typeof salesStats !== 'undefined') {
             managerStats.style.display = 'grid';
+            
+            // Update stats from C data
+            const cards = managerStats.querySelectorAll('.stat-info p');
+            cards[0].textContent = salesStats.totalProducts;
+            cards[1].textContent = salesStats.daily.toFixed(2) + " ج.م";
+            cards[2].textContent = salesStats.totalCustomers;
+            cards[3].textContent = inventoryData.filter(i => isExpired(i.expiry)).length;
+
             contentArea.appendChild(managerStats);
+        } else {
+            managerStats.style.display = 'none';
         }
     }
 
-    function renderMockStock() {
+    function isExpired(expiryStr) {
+        const [d, m, y] = expiryStr.split('/').map(Number);
+        const expiryDate = new Date(y, m - 1, d);
+        return expiryDate < new Date();
+    }
+
+    function renderStock() {
         managerStats.style.display = 'none';
+        if (typeof inventoryData === 'undefined') return;
+
+        let rows = inventoryData.map(item => `
+            <tr>
+                <td>${item.id}</td>
+                <td>${item.name}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${item.quantity}</td>
+                <td>${item.section}</td>
+                <td>${item.expiry}</td>
+            </tr>
+        `).join('');
+
         contentArea.innerHTML = `
             <div class="table-container">
                 <table>
@@ -155,32 +186,61 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th>السعر</th>
                             <th>الكمية</th>
                             <th>القسم</th>
+                            <th>تاريخ الانتهاء</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>101</td>
-                            <td>حليب مراعي 1 لتر</td>
-                            <td>25.00</td>
-                            <td>50</td>
-                            <td>الألبان</td>
-                        </tr>
-                        <tr>
-                            <td>102</td>
-                            <td>خبز أبيض</td>
-                            <td>10.00</td>
-                            <td>100</td>
-                            <td>المخبوزات</td>
-                        </tr>
-                        <tr>
-                            <td>103</td>
-                            <td>جبنة شيدر 250ج</td>
-                            <td>45.00</td>
-                            <td>30</td>
-                            <td>الألبان</td>
-                        </tr>
+                        ${rows}
                     </tbody>
                 </table>
+            </div>
+        `;
+    }
+
+    function renderAccounts() {
+        managerStats.style.display = 'none';
+        if (typeof accountsData === 'undefined') return;
+
+        let rows = accountsData.map(acc => `
+            <tr>
+                <td>${acc.id}</td>
+                <td>${roleMapping[acc.role].title}</td>
+                <td>${acc.itemsSold}</td>
+                <td>${acc.totalRevenue.toFixed(2)} ج.م</td>
+            </tr>
+        `).join('');
+
+        contentArea.innerHTML = `
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>معرف المستخدم</th>
+                            <th>الرتبة</th>
+                            <th>القطع المباعة</th>
+                            <th>إجمالي الإيرادات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function renderReports() {
+        managerStats.style.display = 'none';
+        if (typeof salesStats === 'undefined') return;
+
+        contentArea.innerHTML = `
+            <div class="glass-card">
+                <h3>ملخص التقارير المالية</h3>
+                <div class="report-details">
+                    <p><strong>مبيعات اليوم:</strong> ${salesStats.daily.toFixed(2)} ج.م</p>
+                    <p><strong>مبيعات الأسبوع:</strong> ${salesStats.weekly.toFixed(2)} ج.م</p>
+                    <p><strong>مبيعات الشهر:</strong> ${salesStats.monthly.toFixed(2)} ج.م</p>
+                </div>
             </div>
         `;
     }

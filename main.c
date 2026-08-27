@@ -114,6 +114,7 @@ void viewAnalytics();
 void viewLastBill();                                          // Added this
 void confirmPurchase();                                       // Added this
 void savePendingOrder(Product *cart, int count, float total); // Added this
+void exportDataToJS();                                        // Added this
 int isExpired(Date expiry);
 Date getCurrentDate();
 
@@ -123,6 +124,7 @@ int main()
     loadInventory(expiredInventory, &expiredCount, EXPIRED_FILE);
     loadAccounts();
     loadRules();
+    exportDataToJS(); // Initial export
 
     if (findAccountByID("#001") == -1)
     {
@@ -146,6 +148,7 @@ int main()
             saveInventory(expiredInventory, expiredCount, EXPIRED_FILE);
             saveAccounts();
             saveRules();
+            exportDataToJS();
             printf("Exiting... Data saved.\n");
             break;
         }
@@ -229,7 +232,7 @@ void managerMenu()
     do
     {
         printf("\n--- MANAGER MENU (%s) ---\n", accounts[currentAccountIndex].ID);
-        printf("1. Add Account\n2. Change Price\n3. View Reports\n4. View Stock\n5. Manage Sales Rules\n6. View Section Analytics\n7. View Expired Returns\n8. Logout\nChoice: ");
+        printf("1. Add Account\n2. Change Price\n3. View Reports\n4. View Stock\n5. Manage Sales Rules\n6. View Section Analytics\n7. View Expired Returns\n8. Launch Web Dashboard\n9. Logout\nChoice: ");
         if (scanf_s("%d", &choice) != 1)
         {
             clearBuffer();
@@ -240,9 +243,11 @@ void managerMenu()
         {
         case 1:
             addAccount();
+            exportDataToJS();
             break;
         case 2:
             changePrice();
+            exportDataToJS();
             break;
         case 3:
             viewReports(0);
@@ -252,6 +257,7 @@ void managerMenu()
             break;
         case 5:
             manageSales();
+            exportDataToJS();
             break;
         case 6:
             viewAnalytics();
@@ -260,9 +266,13 @@ void managerMenu()
             viewStock(expiredInventory, expiredCount, "EXPIRED RETURNS SECTION");
             break;
         case 8:
+            printf("Launching Web Dashboard...\n");
+            system("start index.html");
+            break;
+        case 9:
             break;
         }
-    } while (choice != 8);
+    } while (choice != 9);
 }
 
 void supervisorMenu()
@@ -504,6 +514,7 @@ void addProduct(Product *inv, int *count)
     inv[*count] = n;
     (*count)++;
     saveInventory(inv, *count, INVENTORY_FILE);
+    exportDataToJS();
 }
 
 void viewStock(Product *inv, int count, const char *title)
@@ -958,5 +969,66 @@ void confirmPurchase()
     printf("\n--- PURCHASE CONFIRMED & PAID ---\n");
     printf("Total Collected: %.2f\n", total);
     printf("Final Receipt Printed to 'receipt.txt'.\n");
+    exportDataToJS();
     system("pause");
+}
+
+void exportDataToJS()
+{
+    FILE *f = NULL;
+    fopen_s(&f, "data.js", "w");
+    if (f == NULL)
+        return;
+
+    fprintf(f, "// Auto-generated data from C System\n\n");
+
+    // Export Inventory
+    fprintf(f, "const inventoryData = [\n");
+    for (int i = 0; i < inventoryCount; i++)
+    {
+        fprintf(f, "    { id: %d, name: \"%s\", price: %.2f, quantity: %d, section: \"%s\", expiry: \"%02d/%02d/%d\" },\n",
+                inventory[i].ID, inventory[i].name, inventory[i].price, inventory[i].quantity, inventory[i].section,
+                inventory[i].expiryDate.day, inventory[i].expiryDate.month, inventory[i].expiryDate.year);
+    }
+    fprintf(f, "];\n\n");
+
+    // Export Accounts
+    fprintf(f, "const accountsData = [\n");
+    for (int i = 0; i < accountCount; i++)
+    {
+        fprintf(f, "    { id: \"%s\", role: %d, itemsSold: %d, totalRevenue: %.2f },\n",
+                accounts[i].ID, (int)accounts[i].role, accounts[i].itemsSold, accounts[i].totalRevenue);
+    }
+    fprintf(f, "];\n\n");
+
+    // Export Sales Stats (re-calculating briefly)
+    float dTot = 0, wTot = 0, mTot = 0;
+    FILE *sf = NULL;
+    fopen_s(&sf, "sales.txt", "r");
+    if (sf != NULL)
+    {
+        time_t now = time(NULL);
+        SaleRecord s;
+        while (fscanf_s(sf, "%lld %s %d %d %f %s", &s.timestamp, s.sellerID, 50, &s.productID, &s.quantity, &s.total, s.section, 30) == 6)
+        {
+            double diff = difftime(now, s.timestamp);
+            if (diff <= 86400)
+                dTot += s.total;
+            if (diff <= 604800)
+                wTot += s.total;
+            if (diff <= 2592000)
+                mTot += s.total;
+        }
+        fclose(sf);
+    }
+
+    fprintf(f, "const salesStats = {\n");
+    fprintf(f, "    daily: %.2f,\n", dTot);
+    fprintf(f, "    weekly: %.2f,\n", wTot);
+    fprintf(f, "    monthly: %.2f,\n", mTot);
+    fprintf(f, "    totalProducts: %d,\n", inventoryCount);
+    fprintf(f, "    totalCustomers: %d\n", accountCount); // Rough estimate
+    fprintf(f, "};\n");
+
+    fclose(f);
 }
